@@ -43,24 +43,6 @@ def first_pass(source):
 
     return BASENAME, NUM_FRAMES
 
-def lighting_pass(source):
-    SHADING = ''
-    AMBIENT_VALUES = (10, 10, 10)
-    lights = {}
-    constants = {}
-    list_of_commands_and_args = [[line[0], line[1:]] for line in source]
-
-    for command, args in list_of_commands_and_args:
-        if command == 'light':
-            lights[command] = args
-        if command == 'ambient':
-            AMBIENT_VALUES[:] = args
-        if command == 'constants':
-            constants[command] = args
-        if command == 'shade_type':
-            SHADING = args[0]
-    return (lights, AMBIENT_VALUES, constants, SHADING)
-
 """======== second_pass( commands ) ==========
 
   In order to set the knobs for animation, we need to keep
@@ -124,7 +106,6 @@ def run(filename):
     color = [255, 255, 255]
     tmp = new_matrix()
     ident( tmp )
-    zbuffer = new_zbuffer()
     screen = new_screen()
     step = 0.01
 
@@ -138,11 +119,14 @@ def run(filename):
 
     setting = {}
     BASENAME, NUM_FRAMES = first_pass(commands)
-    setting['light'], setting['ambient'], setting['shading'], setting['constants'] = lighting_pass(commands)
     knobs = second_pass(commands, NUM_FRAMES)
 
     if NUM_FRAMES == -1:
         NUM_FRAMES = 1
+
+    light_sources = [symbols[i][1] for i in symbols if symbols[i][0] == 'light']
+    if 'shading' in symbols:
+        shading_type = symbols['shading'][1]
 
     for frame_num in xrange(NUM_FRAMES):
         print 'Pass {0}...    '.format(frame_num),
@@ -150,6 +134,8 @@ def run(filename):
         ident(tmp)
         stack = [ [x[:] for x in tmp] ]
 
+        screen = new_screen()
+        zbuffer = new_zbuffer()
         tmp = []
         step = 0.1
 
@@ -170,7 +156,10 @@ def run(filename):
                         args[0], args[1], args[2],
                         args[3], args[4], args[5])
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zbuffer, color, setting)
+                if args[-1]:
+                    draw_polygons(tmp, screen, zbuffer, color, symbols[args[-1]][1], light_sources, shading_type)
+                else:
+                    draw_polygons(tmp, screen, zbuffer, color)
                 tmp = []
 
 
@@ -178,13 +167,19 @@ def run(filename):
                 add_sphere(tmp,
                            args[0], args[1], args[2], args[3], step)
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zbuffer, color, setting)
+                if args[-1]:
+                    draw_polygons(tmp, screen, zbuffer, color, symbols[args[-1]][1], light_sources, shading_type)
+                else:
+                    draw_polygons(tmp, screen, zbuffer, color)
                 tmp = []
             elif c == 'torus':
                 add_torus(tmp,
                           args[0], args[1], args[2], args[3], args[4], step)
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zbuffer, color, setting)
+                if args[-1]:
+                    draw_polygons(tmp, screen, zbuffer, color, symbols[args[-1]][1], light_sources, shading_type)
+                else:
+                    draw_polygons(tmp, screen, zbuffer, color)
                 tmp = []
             elif c == 'move':
 
